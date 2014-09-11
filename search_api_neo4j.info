@@ -1,0 +1,4 @@
+name = Search Api Neo4j
+core = 7.x
+
+files[] = service.inc

@@ -1,0 +1,101 @@
+<?php
+
+require_once __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/neo4j.php';
+
+//use Everyman\Neo4j\Client;
+//use Everyman\Neo4j\Query;
+//use Everyman\Neo4j\Cypher\Query as Cypher;
+//use Everyman\Neo4j\Gremlin\Query as Gremlin;
+
+function search_api_neo4j_search_api_service_info() {
+   $services['search_api_neo4j_service'] = array(
+    'name' => t('Neo4j service'),
+    'description' => t('<p>Index items using multiple database tables, for simple searches.</p>' .
+        '<ul>' . '<li>All field types are supported and indexed in a special way, with URI/String and Integer/Duration being equivalent.</li>' .
+        '<li>The "direct" parse mode results in the keys being normally split around white-space, only preprocessing might differ.</li>' .
+        '<li>Currently, phrase queries are not supported.</li>' . '</ul>'),
+    'class' => 'SearchApiNeo4jService',
+  );
+  return $services;
+}
+
+// Implements hook_search_api_item_type_info_alter($infos)
+function search_api_neo4j_search_api_item_type_info_alter($infos) {
+  //dpm($infos);
+}
+
+function search_api_neo4j_entity_delete($entity, $entity_type) {
+  dpm('Delete - ' . $entity_type . ' ' . REQUEST_TIME);
+  $del_ids = &drupal_static(__FUNCTION__);
+  
+  //Init static variable
+  if(!isset($del_ids)) {
+    $del_ids = array();
+  }
+  
+  list($entity_id) = entity_extract_ids($entity_type, $entity);
+  
+  if($entity_type == 'relation') {
+    $language = isset($entity->language) ? $entity->language : LANGUAGE_NONE;
+    
+    $uuids = array();
+    
+    foreach($entity->endpoints[$language] as $delta => $value) {
+      $uuid = $value['entity_type'] . '_' . $value['entity_id'];
+      $uuids[$uuid] = array(
+        'entity_type' => $value['entity_type'],
+        'entity_id' => $value['entity_id'],
+      );
+    }
+    dpm($uuids);
+    //Retrieve old entity ids
+    $results = db_select('field_data_endpoints', 'e')
+      ->fields('e', array('endpoints_entity_type', 'endpoints_entity_id'))
+      ->condition('entity_id', $entity_id)
+      ->execute();
+    
+    foreach($results as $record) {
+      $uuid = $record->endpoints_entity_type . '_' . $record->endpoints_entity_id;
+      dpm($uuid);
+      //Add entity to del_ids if dissapeared
+      if(!isset($uuids[$uuid])) {
+        $del_ids[$uuid] = array(
+          'entity_type' => $record->endpoints_entity_type,
+          'entity_id' => $record->endpoints_entity_id,
+        );
+      }
+    }
+  }
+  else {
+    $uuid = $entity_type . '_' .$entity_id;
+    
+    if(isset($del_ids[$uuid])) {
+      //Delete node from uuids
+      dpm($entity);
+      dpm($entity_id);
+    }
+  }
+}
+
+$config = new stdClass();
+$config->options = array(
+	'host' => 'localhost',
+	'port' => '7474'
+);
+
+$neo = NeoFactory::getClient($config);
+
+$queryString = 'MATCH (n) RETURN n LIMIT 100';
+
+//Lambda
+$query = $neo->getQueryEngine('Cypher');
+$results = $query($queryString)->getResultSet();
+
+foreach ($results as $record) {
+  //dpm($record['x']);
+}
+
+//QueryFactory
+$engine = $neo->queryEngine('Cypher');
+//$results = $engine->query($queryString)->get;
