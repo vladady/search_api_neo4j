@@ -159,7 +159,7 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
     $current_index = $this->connection->getIndex($index->name, $element_type);
     
     $uuid = $this->create_id($index->item_type, $id);
-    $element = $this->getElement($element_type, $uuid);	
+    $element = $this->getElement($element_type, $uuid); 
 
     //create Element
     if(!$element) {

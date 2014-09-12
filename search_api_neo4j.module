@@ -103,8 +103,8 @@ function search_api_neo4j_servers() {
 
 $config = new stdClass();
 $config->options = array(
-	'host' => 'localhost',
-	'port' => '7474'
+  'host' => 'localhost',
+  'port' => '7474'
 );
 
 $neo = NeoFactory::getClient($config);

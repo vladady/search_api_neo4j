@@ -12,17 +12,17 @@ use Everyman\Neo4j\Cypher\Query as Cypher;
 use Everyman\Neo4j\Gremlin\Query as Gremlin;
 
 class Neo {
-	private $client; 
+  private $client; 
   private static $indexes;
   
-	function __construct(Client $client) {
-		$this->client = $client;
+  function __construct(Client $client) {
+    $this->client = $client;
     $this->index_factory = new IndexFactory($this->client);
-	}
+  }
   
-	function queryEngine($engine) {
-		return new QueryFactory($engine, $this->client);
-	}
+  function queryEngine($engine) {
+    return new QueryFactory($engine, $this->client);
+  }
 
   function getQueryEngine($engine) {
     $client = $this->client;
@@ -94,50 +94,50 @@ class Neo {
 
 
 class NeoFactory {
-	private static $connections;
+  private static $connections;
   
-	static function getClient($config) {
+  static function getClient($config) {
     //Add default options
     $config->options += array(
       'host' => 'localhost',
       'port' => '7474',
     );
     
-		$url = 'http://' . $config->options['host'] . ':' . $config->options['port'];
+    $url = 'http://' . $config->options['host'] . ':' . $config->options['port'];
     
-		if(!isset($connections[$url])) {
-			//Set basic auth options
-			if(isset($config->options['auth'])) {
-				$transport = new Transport($config->options['host'], $config->options['port']);
-				$transport->setAuth($config->options['user'], $config->options['pass']);
+    if(!isset($connections[$url])) {
+      //Set basic auth options
+      if(isset($config->options['auth'])) {
+        $transport = new Transport($config->options['host'], $config->options['port']);
+        $transport->setAuth($config->options['user'], $config->options['pass']);
 
-				$client = new Client($transport);
-			}
-			else {
-				$client = new Client($config->options['host'], $config->options['port']);
-			}
+        $client = new Client($transport);
+      }
+      else {
+        $client = new Client($config->options['host'], $config->options['port']);
+      }
 
-			$connections[$url] = new Neo($client);
-		}
+      $connections[$url] = new Neo($client);
+    }
   
-		return $connections[$url];
-	}
+    return $connections[$url];
+  }
 }
 
 class QueryFactory{
-	private $engine;
-	private $client;
+  private $engine;
+  private $client;
 
-	function __construct($engine, $client) {
-		$this->engine = $engine;
-		$this->client = $client;
-	}
+  function __construct($engine, $client) {
+    $this->engine = $engine;
+    $this->client = $client;
+  }
 
-	function query($template, $vars = array()) {
+  function query($template, $vars = array()) {
     $engine = $this->engine;
     $class = "Everyman\\Neo4j\\$engine\\Query";
-		return new $class($this->client, $template, $vars);
-	}
+    return new $class($this->client, $template, $vars);
+  }
 }
 
 class IndexFactory{
