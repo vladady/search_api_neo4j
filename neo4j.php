@@ -42,6 +42,7 @@ class Neo {
       $indexes[$name] = $this->index_factory->create($this->client, $name, $type);
       $indexes[$name]->save();
     }
+    
     //@todo - possible leak
     return $indexes[$name];
   }
@@ -49,11 +50,20 @@ class Neo {
   function createNode() {
     return new \Everyman\Neo4j\Node($this->client);
   }
+  
+  function createRelation() {
+    return new \Everyman\Neo4j\Relationship($this->client);
+  }
+  
   function createElement($element_type) {
     if($element_type == 'node') {
       return $this->createNode();
     }
+    elseif($element_type == 'relation') {
+      return $this->createRelation();
+    }
   }
+  
   function getNode($id) {
     return $this->client->getNode($id);
   }
@@ -146,17 +156,5 @@ class IndexFactory{
       $class = "Everyman\\Neo4j\\Index\\$type";
       return new $class($client, $name);
     }
-  }
-}
-
-class IndexItem {
-  function __construct($index) {
-    
-  }
-  function from() {
-    
-  }
-  function index() {
-    
   }
 }

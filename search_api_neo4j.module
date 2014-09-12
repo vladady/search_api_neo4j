@@ -48,7 +48,7 @@ function search_api_neo4j_entity_delete($entity, $entity_type) {
         'entity_id' => $value['entity_id'],
       );
     }
-    dpm($uuids);
+
     //Retrieve old entity ids
     $results = db_select('field_data_endpoints', 'e')
       ->fields('e', array('endpoints_entity_type', 'endpoints_entity_id'))
@@ -57,7 +57,7 @@ function search_api_neo4j_entity_delete($entity, $entity_type) {
     
     foreach($results as $record) {
       $uuid = $record->endpoints_entity_type . '_' . $record->endpoints_entity_id;
-      dpm($uuid);
+
       //Add entity to del_ids if dissapeared
       if(!isset($uuids[$uuid])) {
         $del_ids[$uuid] = array(
@@ -72,10 +72,33 @@ function search_api_neo4j_entity_delete($entity, $entity_type) {
     
     if(isset($del_ids[$uuid])) {
       //Delete node from uuids
-      dpm($entity);
-      dpm($entity_id);
+      //dpm($entity);
+      //dpm($entity_id);
+      
+      //We don't know in this case from what index comes
+      search_api_neo4j_delete_item($entity_id, $entity_type);
     }
   }
+}
+function search_api_neo4j_delete_item($entity_type, $entity_id) {
+  $element_type = ($entity_type == 'relation') ? 'relation' : 'node';
+  $uuid = $entity_type . '_' . $entity_id;
+  
+  foreach(search_api_neo4j_servers() as $server) {
+    $graph = NeoFactory::getClient($server);
+    
+    $element_index = $graph->getIndex($element_type . '_index', $element_type);
+    $element = $element_index->findOne('uuid', $uuid);
+    
+    if($element) {
+      $element_index->remove($element);
+      $element->delete();
+    }
+  }
+}
+
+function search_api_neo4j_servers() {
+  return search_api_server_load_multiple(FALSE, array('class' => 'search_api_neo4j_service'));
 }
 
 $config = new stdClass();
