@@ -25,22 +25,53 @@ function search_api_neo4j_search_api_item_type_info_alter($infos) {
   //dpm($infos);
 }
 
+function search_api_neo4j_entity_property_info_alter(&$info) {
+  dpm($info);
+  $info['relation']['properties']['endpoints_list'] = array(
+    'type' => 'list<list<text>>',
+    'label' => t('Endpoints list'),
+    'sanitized' => TRUE,
+    'getter callback' => '_search_api_neo4j_endpoints_list_getter_callback',
+    // 'property info' => array(
+    //   'value' => array(
+    //     'type' => 'list<text>',
+    //     'label' => t('From date'),
+    //     'getter callback' => 'test_getter',
+    //   ),
+    // ),
+  );
+}
+
+function _search_api_neo4j_endpoints_list_getter_callback($relation, array $options, $property_name, $entity_type) {
+  $endpoints = array();
+
+  foreach ($relation->endpoints[LANGUAGE_NONE] as $key => $endpoint) {
+    $endpoints[] = array(
+      'entity_type' => $endpoint['entity_type'],
+      'entity_id' => $endpoint['entity_id'],
+      'r_index' => $endpoint['r_index'],
+    );
+  }
+
+  return $endpoints;
+}
+
 function search_api_neo4j_entity_delete($entity, $entity_type) {
   dpm('Delete - ' . $entity_type . ' ' . REQUEST_TIME);
   $del_ids = &drupal_static(__FUNCTION__);
-  
+
   //Init static variable
   if(!isset($del_ids)) {
     $del_ids = array();
   }
-  
+
   list($entity_id) = entity_extract_ids($entity_type, $entity);
-  
+
   if($entity_type == 'relation') {
     $language = isset($entity->language) ? $entity->language : LANGUAGE_NONE;
-    
+
     $uuids = array();
-    
+
     foreach($entity->endpoints[$language] as $delta => $value) {
       $uuid = $value['entity_type'] . '_' . $value['entity_id'];
       $uuids[$uuid] = array(
@@ -54,7 +85,7 @@ function search_api_neo4j_entity_delete($entity, $entity_type) {
       ->fields('e', array('endpoints_entity_type', 'endpoints_entity_id'))
       ->condition('entity_id', $entity_id)
       ->execute();
-    
+
     foreach($results as $record) {
       $uuid = $record->endpoints_entity_type . '_' . $record->endpoints_entity_id;
 
@@ -69,12 +100,12 @@ function search_api_neo4j_entity_delete($entity, $entity_type) {
   }
   else {
     $uuid = $entity_type . '_' .$entity_id;
-    
+
     if(isset($del_ids[$uuid])) {
       //Delete node from uuids
       //dpm($entity);
       //dpm($entity_id);
-      
+
       //We don't know in this case from what index comes
       search_api_neo4j_delete_item($entity_id, $entity_type);
     }
@@ -83,13 +114,13 @@ function search_api_neo4j_entity_delete($entity, $entity_type) {
 function search_api_neo4j_delete_item($entity_type, $entity_id) {
   $element_type = ($entity_type == 'relation') ? 'relation' : 'node';
   $uuid = $entity_type . '_' . $entity_id;
-  
+
   foreach(search_api_neo4j_servers() as $server) {
     $graph = NeoFactory::getClient($server);
-    
+
     $element_index = $graph->getIndex($element_type . '_index', $element_type);
     $element = $element_index->findOne('uuid', $uuid);
-    
+
     if($element) {
       $element_index->remove($element);
       $element->delete();
