@@ -97,6 +97,11 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
       $node = $this->connection->createElement('node');
     }
     $this->updateElement($node, 'node', $uuid);
+    
+    //Add Label
+    $labels = $this->connection->createLabels(array($entity_type));
+    $node->addLabels($labels);
+    
     $this->indexElement($node, $this->node_index, array('uuid'));
 
     return $node;
@@ -159,7 +164,7 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
     $element_type = ($index->item_type == 'relation') ? 'relation' : 'node';
 
     $element_index = $this->getDefaultIndex($element_type);
-    $current_index = $this->connection->getIndex($index->name, $element_type);
+    $current_index = $this->connection->getIndex($index->machine_name, $element_type);
 
     $uuid = $this->create_id($index->item_type, $id);
     $element = $this->getElement($element_type, $uuid);
@@ -172,6 +177,11 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
     //update with new data
     $this->updateElement($element, $element_type, $uuid, $item);
     $fields = $this->getFields($element_type, $item);
+    
+    if ($element_type == 'node') {
+      $labels = $this->connection->createLabels(array($index->item_type));
+      $element->addLabels($labels);
+    }
 
     //index in both indexes
     $this->indexElement($element, $element_index, array('uuid'));
@@ -190,11 +200,11 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
     return $ids;
   }
 
-  function deleteItem($index, $id) {
-    $element_type = ($index->item_type == 'relation') ? 'relation' : '';
+  function deleteItem($index, $uuid) {
+    $element_type = ($index->item_type == 'relation') ? 'relation' : 'node';
     $element_index = $this->getDefaultIndex($element_type);
 
-    $uuid = $this->create_id($index->item_type, $id);
+    //$uuid = $this->create_id($index->item_type, $id);
     $element = $this->getElement($element_type, $uuid);
 
     if (!$element) {
@@ -204,23 +214,47 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
     //Remove from default index and current index
     $element_index->remove($element);
 
-    $current_index = $this->connection->getIndex($index->name, $element_type);
+    $current_index = $this->connection->getIndex($index->machine_name, $element_type);
     $current_index->remove($element);
 
     $element->delete();
   }
-
+ 
   function deleteItems($ids = 'all', \SearchApiIndex $index = NULL) {
+    //dpm(debug_backtrace());
     //@TODO - delete in batch
-    $db = debug_backtrace();
-    dpm($db);
-
+    
     if($ids == 'all') {
-      //@TODO - Delete all
+      //Remove all data from all indexes from this server
+      if(!$index) {
+         search_api_neo4j_delete_all($this->server);
+      }
+      else {
+        //Remove data from an index
+        $element_type = ($index->item_type == 'relation') ? 'relation' : 'node';
+        $current_index = $this->connection->getIndex($index->machine_name, $element_type);
+
+        try {
+          foreach($current_index->query('*:*') as $rec) {
+            //If nodes have relations you cannot delete them
+            if($element_type == 'node') {
+              $relation = $rec->getFirstRelationship();
+              if($relation) {
+                throw new Exception('Try deleting relation index before!');
+              }
+            }
+            
+            $this->deleteItem($index, $rec->getProperty('uuid'));
+          }
+        } catch (Exception $ex) {
+          throw new Exception('Some problem appeared while deleting data: ' . $ex->getMessage());
+        }
+      }
     }
     else {
       foreach ($ids as $id) {
-        $this->deleteItem($index, $id);
+        $uuid = $this->create_id($index->item_type, $id);
+        $this->deleteItem($index, $uuid);
       }
     }
   }

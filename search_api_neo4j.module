@@ -102,15 +102,12 @@ function search_api_neo4j_entity_delete($entity, $entity_type) {
     $uuid = $entity_type . '_' .$entity_id;
 
     if(isset($del_ids[$uuid])) {
-      //Delete node from uuids
-      //dpm($entity);
-      //dpm($entity_id);
-
       //We don't know in this case from what index comes
       search_api_neo4j_delete_item($entity_id, $entity_type);
     }
   }
 }
+
 function search_api_neo4j_delete_item($entity_type, $entity_id) {
   $element_type = ($entity_type == 'relation') ? 'relation' : 'node';
   $uuid = $entity_type . '_' . $entity_id;
@@ -132,24 +129,48 @@ function search_api_neo4j_servers() {
   return search_api_server_load_multiple(FALSE, array('class' => 'search_api_neo4j_service'));
 }
 
-$config = new stdClass();
-$config->options = array(
-  'host' => 'localhost',
-  'port' => '7474'
-);
-
-$neo = NeoFactory::getClient($config);
-
-$queryString = 'MATCH (n) RETURN n LIMIT 100';
-
-//Lambda
-$query = $neo->getQueryEngine('Cypher');
-$results = $query($queryString)->getResultSet();
-
-foreach ($results as $record) {
-  //dpm($record['x']);
+function search_api_neo4j_delete_index($index) {
+  $server = $index->server();
+  $graph = NeoFactory::getClient($server);
+  
+  $element_type = ($index->item_type == 'relation') ? 'relation' : 'node';
+  $graph_index = $graph->getIndex($index->machine_name, $element_type);
+  $graph_index->delete();
 }
 
-//QueryFactory
-$engine = $neo->queryEngine('Cypher');
-//$results = $engine->query($queryString)->get;
+function search_api_neo4j_delete_all($server = NULL) {
+  //If no index specified delete all
+  if(!$server) {
+    $servers = search_api_neo4j_servers();
+  }
+  else {
+    $servers = array($server);
+  }
+  
+  foreach($servers as $server) {
+    $graph = NeoFactory::getClient($server);
+    $engine = $graph->queryEngine('Cypher');
+
+    $engine->query('START n = node(*)
+      MATCH (n)-[r]->()
+      DELETE r
+    ');
+    $engine->query('START n = node(*)
+      DELETE n
+    ');
+    
+    $indexes = search_api_index_load_multiple(FALSE, array('server' => $server->machine_name));
+   
+     //@TODO - delete in order
+    foreach($indexes as $index) {
+      search_api_neo4j_delete_index($index);
+    }
+    
+    //Delete default indexes
+    $node_index = $graph->getIndex('node_index', 'node');
+    $relation_index = $graph->getIndex('relation_index', 'relation');
+
+    $node_index->delete();
+    $relation_index->delete();
+  }
+}

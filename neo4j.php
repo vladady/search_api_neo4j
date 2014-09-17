@@ -47,6 +47,24 @@ class Neo {
     return $indexes[$name];
   }
   
+  function getIndexes($type = 'node') {
+    return $this->client->getIndexes($type);
+  }
+  
+  function createLabel() {
+    return new \Everyman\Neo4j\Label($this->client, $name);
+  }
+  
+  function createLabels(array $names) {
+    $labels = array();
+    
+    foreach ($names as $name) {
+      $labels[] = new \Everyman\Neo4j\Label($this->client, $name);
+    }
+    
+    return $labels;
+  }
+  
   function createNode() {
     return new \Everyman\Neo4j\Node($this->client);
   }
@@ -73,8 +91,7 @@ class Neo {
     $query = 'MATCH (n { ' . $property_name . ' : "' . $property_value . '" }) 
               RETURN n LIMIT 1';
     
-    $result = $engine->query($query)
-       ->getResultSet();
+    $result = $engine->query($query);
 
     $exists = $result->count();
     
@@ -136,7 +153,9 @@ class QueryFactory{
   function query($template, $vars = array()) {
     $engine = $this->engine;
     $class = "Everyman\\Neo4j\\$engine\\Query";
-    return new $class($this->client, $template, $vars);
+    $query = new $class($this->client, $template, $vars);
+    
+    return $query->getResultSet();
   }
 }
 
