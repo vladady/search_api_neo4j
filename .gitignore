@@ -1,0 +1,5 @@
+# Ignore composer.lock file
+composer.lock
+
+# Ignore neo4jphp library
+vendor/everyman/neo4jphp
