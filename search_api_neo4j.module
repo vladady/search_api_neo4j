@@ -3,13 +3,14 @@
 require_once __DIR__ . '/vendor/autoload.php';
 require_once __DIR__ . '/neo4j.php';
 
-//use Everyman\Neo4j\Client;
-//use Everyman\Neo4j\Query;
-//use Everyman\Neo4j\Cypher\Query as Cypher;
-//use Everyman\Neo4j\Gremlin\Query as Gremlin;
-
+/**
+ * Implements hook_search_api_service_info().
+ */
 function search_api_neo4j_search_api_service_info() {
-   $services['search_api_neo4j_service'] = array(
+
+  $services = array();
+
+  $services['search_api_neo4j_service'] = array(
     'name' => t('Neo4j service'),
     'description' => t('<p>Index items using multiple database tables, for simple searches.</p>' .
         '<ul>' . '<li>All field types are supported and indexed in a special way, with URI/String and Integer/Duration being equivalent.</li>' .
@@ -17,35 +18,52 @@ function search_api_neo4j_search_api_service_info() {
         '<li>Currently, phrase queries are not supported.</li>' . '</ul>'),
     'class' => 'SearchApiNeo4jService',
   );
+
   return $services;
 }
 
-// Implements hook_search_api_item_type_info_alter($infos)
-function search_api_neo4j_search_api_item_type_info_alter($infos) {
-  //dpm($infos);
+/**
+ * Implements hook_search_api_item_type_info_alter().
+ */
+function search_api_neo4j_search_api_item_type_info_alter(&$info) {
+
 }
 
+/**
+ * Implements hook_entity_property_info_alter().
+ */
 function search_api_neo4j_entity_property_info_alter(&$info) {
-  dpm($info);
+
   $info['relation']['properties']['endpoints_list'] = array(
     'type' => 'list<list<text>>',
     'label' => t('Endpoints list'),
     'sanitized' => TRUE,
     'getter callback' => '_search_api_neo4j_endpoints_list_getter_callback',
-    // 'property info' => array(
-    //   'value' => array(
-    //     'type' => 'list<text>',
-    //     'label' => t('From date'),
-    //     'getter callback' => 'test_getter',
-    //   ),
-    // ),
+      // 'property info' => array(
+      //   'value' => array(
+      //     'type' => 'list<text>',
+      //     'label' => t('From date'),
+      //     'getter callback' => 'test_getter',
+      //   ),
+      // ),
   );
 }
 
-function _search_api_neo4j_endpoints_list_getter_callback($relation, array $options, $property_name, $entity_type) {
+/**
+ * Getter callback for relation's endpoint property.
+ * 
+ * @param array $data
+ * @param array $options
+ * @param string $name
+ * @param string $type
+ * @param array $info
+ * @return array
+ */
+function _search_api_neo4j_endpoints_list_getter_callback($data, array $options, $name, $type, $info) {
+
   $endpoints = array();
 
-  foreach ($relation->endpoints[LANGUAGE_NONE] as $key => $endpoint) {
+  foreach ($data->endpoints[LANGUAGE_NONE] as $key => $endpoint) {
     $endpoints[] = array(
       'entity_type' => $endpoint['entity_type'],
       'entity_id' => $endpoint['entity_id'],
@@ -56,23 +74,25 @@ function _search_api_neo4j_endpoints_list_getter_callback($relation, array $opti
   return $endpoints;
 }
 
+/**
+ * Implements hook_entity_insert().
+ */
 function search_api_neo4j_entity_delete($entity, $entity_type) {
-  dpm('Delete - ' . $entity_type . ' ' . REQUEST_TIME);
   $del_ids = &drupal_static(__FUNCTION__);
 
-  //Init static variable
-  if(!isset($del_ids)) {
+  // Init static variable.
+  if (!isset($del_ids)) {
     $del_ids = array();
   }
 
   list($entity_id) = entity_extract_ids($entity_type, $entity);
 
-  if($entity_type == 'relation') {
+  if ($entity_type == 'relation') {
     $language = isset($entity->language) ? $entity->language : LANGUAGE_NONE;
 
     $uuids = array();
 
-    foreach($entity->endpoints[$language] as $delta => $value) {
+    foreach ($entity->endpoints[$language] as $delta => $value) {
       $uuid = $value['entity_type'] . '_' . $value['entity_id'];
       $uuids[$uuid] = array(
         'entity_type' => $value['entity_type'],
@@ -80,17 +100,17 @@ function search_api_neo4j_entity_delete($entity, $entity_type) {
       );
     }
 
-    //Retrieve old entity ids
+    // Retrieve old entity ids.
     $results = db_select('field_data_endpoints', 'e')
-      ->fields('e', array('endpoints_entity_type', 'endpoints_entity_id'))
-      ->condition('entity_id', $entity_id)
-      ->execute();
+        ->fields('e', array('endpoints_entity_type', 'endpoints_entity_id'))
+        ->condition('entity_id', $entity_id)
+        ->execute();
 
-    foreach($results as $record) {
+    foreach ($results as $record) {
       $uuid = $record->endpoints_entity_type . '_' . $record->endpoints_entity_id;
 
-      //Add entity to del_ids if dissapeared
-      if(!isset($uuids[$uuid])) {
+      // Add entity to del_ids if dissapeared.
+      if (!isset($uuids[$uuid])) {
         $del_ids[$uuid] = array(
           'entity_type' => $record->endpoints_entity_type,
           'entity_id' => $record->endpoints_entity_id,
@@ -99,55 +119,74 @@ function search_api_neo4j_entity_delete($entity, $entity_type) {
     }
   }
   else {
-    $uuid = $entity_type . '_' .$entity_id;
+    $uuid = $entity_type . '_' . $entity_id;
 
-    if(isset($del_ids[$uuid])) {
-      //We don't know in this case from what index comes
+    if (isset($del_ids[$uuid])) {
+      // We don't know in this case from what index comes.
       search_api_neo4j_delete_item($entity_id, $entity_type);
     }
   }
 }
 
+/**
+ * Helper function for hook_entity_delete().
+ * 
+ * @param string $entity_type
+ * @param string $entity_id
+ */
 function search_api_neo4j_delete_item($entity_type, $entity_id) {
+
   $element_type = ($entity_type == 'relation') ? 'relation' : 'node';
   $uuid = $entity_type . '_' . $entity_id;
 
-  foreach(search_api_neo4j_servers() as $server) {
+  foreach (search_api_neo4j_servers() as $server) {
     $graph = NeoFactory::getClient($server);
 
     $element_index = $graph->getIndex($element_type . '_index', $element_type);
     $element = $element_index->findOne('uuid', $uuid);
 
-    if($element) {
+    if ($element) {
       $element_index->remove($element);
       $element->delete();
     }
   }
 }
 
+/**
+ * Helper function for search_api_neo4j_delete_item().
+ */
 function search_api_neo4j_servers() {
+
   return search_api_server_load_multiple(FALSE, array('class' => 'search_api_neo4j_service'));
 }
 
+/**
+ * Helper function for search_api_neo4j_delete_all().
+ */
 function search_api_neo4j_delete_index($index) {
+
   $server = $index->server();
   $graph = NeoFactory::getClient($server);
-  
+
   $element_type = ($index->item_type == 'relation') ? 'relation' : 'node';
   $graph_index = $graph->getIndex($index->machine_name, $element_type);
   $graph_index->delete();
 }
 
+/**
+ * Helper function for SearchApiNeo4jService->deleteItems().
+ */
 function search_api_neo4j_delete_all($server = NULL) {
-  //If no index specified delete all
-  if(!$server) {
+
+  // If no index specified delete all.
+  if (!$server) {
     $servers = search_api_neo4j_servers();
   }
   else {
     $servers = array($server);
   }
-  
-  foreach($servers as $server) {
+
+  foreach ($servers as $server) {
     $graph = NeoFactory::getClient($server);
     $engine = $graph->queryEngine('Cypher');
 
@@ -158,15 +197,15 @@ function search_api_neo4j_delete_all($server = NULL) {
     $engine->query('START n = node(*)
       DELETE n
     ');
-    
+
     $indexes = search_api_index_load_multiple(FALSE, array('server' => $server->machine_name));
-   
-     //@TODO - delete in order
-    foreach($indexes as $index) {
+
+    // @TODO - delete in order.
+    foreach ($indexes as $index) {
       search_api_neo4j_delete_index($index);
     }
-    
-    //Delete default indexes
+
+    // Delete default indexes.
     $node_index = $graph->getIndex('node_index', 'node');
     $relation_index = $graph->getIndex('relation_index', 'relation');
 

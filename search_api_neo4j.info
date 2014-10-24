@@ -1,4 +1,7 @@
-name = Search Api Neo4j
+name = Neo4j Search
+description = Offers an implementation of the Search API that uses a Neo4j server for indexing content.
+dependencies[] = search_api
 core = 7.x
+package = Search
 
-files[] = service.inc
+files[] = includes/service.inc
