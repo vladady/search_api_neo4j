@@ -17,7 +17,7 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
   }
 
   function configurationForm(array $form, array &$form_state) {
-    if($this->options) {
+    if ($this->options) {
       $form['server_description'] = array(
         '#type' => 'item',
         '#title' => 'Neo4j server URI',
@@ -28,13 +28,13 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
     $form['host'] = array(
       '#type' => 'textfield',
       '#title' => 'Host',
-      '#default_value' => 'localhost',
+      '#default_value' => isset($this->options['host']) ? $this->options['host'] : 'localhost',
       '#required' => TRUE,
     );
     $form['port'] = array(
       '#type' => 'textfield',
       '#title' => 'Port',
-      '#default_value' => '7474',
+      '#default_value' => isset($this->options['port']) ? $this->options['port'] : '7474',
       '#required' => TRUE,
     );
 
