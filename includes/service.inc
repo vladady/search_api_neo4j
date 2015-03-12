@@ -2,7 +2,7 @@
 
 class SearchApiNeo4jService extends SearchApiAbstractService {
 
-  protected $connection;
+  protected $connection = NULL;
   private $node_index;
   private $relation_index;
 
@@ -11,11 +11,20 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
 
     $this->server = $server;
     $this->options = &$server->options;
-    $this->connection = NeoFactory::getClient($server);
 
-    // Init default indexes.
-    $this->node_index = $this->connection->getIndex('node_index', 'node');
-    $this->relation_index = $this->connection->getIndex('relation_index', 'relation');
+    try {
+      $this->connection = NeoFactory::getClient($server);
+
+      // Init default indexes.
+      $this->node_index = $this->connection->getIndex('node_index', 'node');
+      $this->relation_index = $this->connection->getIndex('relation_index', 'relation');
+    }
+    catch (Exception $e) {
+      watchdog('Search Api Neo4j', check_plain($e->getMessage()), array(), WATCHDOG_ERROR);
+      drupal_set_message(check_plain($e->getMessage()), 'error');
+      return FALSE;
+    }
+
   }
 
   function configurationForm(array $form, array &$form_state) {
@@ -26,7 +35,7 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
         '#description' => $this->options['host'].':'.$this->options['port'],
       );
     }
-    
+
     $form['host'] = array(
       '#type' => 'textfield',
       '#title' => 'Host',
@@ -40,7 +49,7 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
       '#default_value' => isset($this->options['port']) ? $this->options['port'] : '7474',
       '#required' => TRUE,
     );
-    
+
 
     return $form;
   }
