@@ -50,6 +50,46 @@ class SearchApiNeo4jService extends SearchApiAbstractService {
       '#required' => TRUE,
     );
 
+     $form['auth'] = array(
+      '#type' => 'checkbox',
+      '#title' => 'Needs Authentification',
+      '#default_value' => isset($this->options['auth']) ? $this->options['auth'] : 1,
+    );
+
+    $form['user'] = array(
+      '#type' => 'textfield',
+      '#title' => 'Username',
+      '#default_value' => isset($this->options['user']) ? $this->options['user'] : 'adm',
+      '#states' => array(
+        'invisible' => array(
+          ':input[name="options[form][auth]"]' => array(
+            'checked' => FALSE,
+          ),
+        ),
+        'required' => array(
+          ':input[name="options[form][auth]"]' => array(
+            'checked' => TRUE,
+          ),
+        ),
+      ),
+    );
+
+    $form['pass'] = array(
+      '#type' => 'password',
+      '#title' => 'Password',
+      '#states' => array(
+        'invisible' => array(
+          ':input[name="options[form][auth]"]' => array(
+            'checked' => FALSE,
+          )
+        ),
+        'required' => array(
+          ':input[name="options[form][auth]"]' => array(
+            'checked' => TRUE,
+          ),
+        ),
+      ),
+    );
 
     return $form;
   }

@@ -8,6 +8,7 @@
 
 use Everyman\Neo4j\Client;
 use Everyman\Neo4j\Query;
+use Everyman\Neo4j\Transport\Curl as Transport;
 use Everyman\Neo4j\Cypher\Query as Cypher;
 use Everyman\Neo4j\Gremlin\Query as Gremlin;
 
@@ -121,7 +122,7 @@ class NeoFactory {
     );
     
     $url = 'http://' . $config->options['host'] . ':' . $config->options['port'];
-    
+
     if(!isset($connections[$url])) {
       //Set basic auth options
       if(isset($config->options['auth'])) {
